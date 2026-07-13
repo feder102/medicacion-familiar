@@ -1,0 +1,6 @@
+{
+  "name": "Salud Familiar",
+  "description": "App para llevar el seguimiento de salud y medicación de los miembros de una familia.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
