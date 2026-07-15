@@ -26,11 +26,6 @@
             android:fillColor="#4CAF50"
             android:pathData="M12,11 A1.5,1.5 0 1,1 12,8 A1.5,1.5 0 1,1 12,11 Z M10,13 A2,2 0 0,0 10,17 L14,17 A2,2 0 0,0 14,13 Z" />
             
-        <!-- White Medical Cross -->
-        <path
-            android:fillColor="#FFFFFF"
-            android:pathData="M13,18 L13,16 L11,16 L11,18 L9,18 L9,20 L11,20 L11,22 L13,22 L13,20 L15,20 L15,18 Z" />
-            
         <!-- Heart Background combining them visually -->
         <path
             android:fillColor="#00ACC1"
@@ -38,5 +33,10 @@
         <path
             android:fillColor="#FFFFFF"
             android:pathData="M14,12h-1.5v-1.5h-1v1.5H10v1h1.5v1.5h1V13H14z" />
+            
+        <!-- White Medical Cross -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M13,18 L13,16 L11,16 L11,18 L9,18 L9,20 L11,20 L11,22 L13,22 L13,20 L15,20 L15,18 Z" />
     </group>
 </vector>
