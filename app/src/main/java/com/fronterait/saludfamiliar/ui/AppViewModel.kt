@@ -5,6 +5,7 @@ import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.fronterait.saludfamiliar.data.*
+import com.fronterait.saludfamiliar.notifications.AlarmScheduler
 import com.fronterait.saludfamiliar.util.CalendarHelper
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -120,34 +121,49 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                     scheduledTime = currentDoseTime,
                     calendarEventId = eventId
                 ))
-                
+
                 currentDoseTime += (freqHours * 60L * 60L * 1000L)
             }
-            
-            repository.insertDoses(doses)
+
+            val doseIds = repository.insertDoses(doses)
+            doses.zip(doseIds).forEach { (dose, doseId) ->
+                AlarmScheduler.scheduleDoseReminder(
+                    context = context,
+                    doseId = doseId,
+                    scheduledTime = dose.scheduledTime,
+                    personId = personId,
+                    personName = personName,
+                    medication = medication,
+                    doseDesc = doseDesc
+                )
+            }
         }
     }
 
     fun cancelTreatment(context: Context, treatment: Treatment) {
         viewModelScope.launch {
             repository.updateTreatment(treatment.copy(active = false))
-            
-            val doses = repository.getDosesWithCalendarEvents(treatment.id)
+
+            val doses = repository.getDosesForTreatmentOnce(treatment.id)
             val currentTime = System.currentTimeMillis()
             doses.forEach { dose ->
                 if (dose.scheduledTime > currentTime) {
                     dose.calendarEventId?.let { eventId ->
                         CalendarHelper.deleteEvent(context, eventId)
                     }
+                    AlarmScheduler.cancelDoseReminder(context, dose.id)
                     repository.updateDose(dose.copy(calendarEventId = null)) // clear the event id so we don't try to delete it again
                 }
             }
         }
     }
 
-    fun markDoseTaken(dose: Dose, taken: Boolean) {
+    fun markDoseTaken(context: Context, dose: Dose, taken: Boolean) {
         viewModelScope.launch {
             repository.updateDose(dose.copy(taken = taken))
+            if (taken) {
+                AlarmScheduler.cancelDoseReminder(context, dose.id)
+            }
         }
     }
 }

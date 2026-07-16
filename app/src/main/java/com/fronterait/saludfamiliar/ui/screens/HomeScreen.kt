@@ -18,6 +18,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -184,6 +185,7 @@ fun HomeScreen(
 
 @Composable
 fun DashboardContent(personId: Long, viewModel: AppViewModel, onNavigateToPerson: (Long) -> Unit) {
+    val context = LocalContext.current
     val upcomingDose by viewModel.getUpcomingDose(personId).collectAsStateWithLifecycle()
     val upcomingTreatment by produceState<com.fronterait.saludfamiliar.data.Treatment?>(initialValue = null, upcomingDose) {
         if (upcomingDose != null) {
@@ -230,7 +232,7 @@ fun DashboardContent(personId: Long, viewModel: AppViewModel, onNavigateToPerson
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
                         val formattedTime = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date(upcomingDose!!.scheduledTime))
                         Text(formattedTime, style = MaterialTheme.typography.displayMedium, fontWeight = FontWeight.Light, color = MaterialTheme.colorScheme.onPrimaryContainer)
-                        Button(onClick = { viewModel.markDoseTaken(upcomingDose!!, true) }) {
+                        Button(onClick = { viewModel.markDoseTaken(context, upcomingDose!!, true) }) {
                             Text("Registrar Toma")
                         }
                     }

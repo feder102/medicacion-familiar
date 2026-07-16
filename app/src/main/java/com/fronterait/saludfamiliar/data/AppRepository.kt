@@ -22,7 +22,9 @@ class AppRepository(private val appDao: AppDao) {
 
     fun getDoses(treatmentId: Long) = appDao.getDosesForTreatment(treatmentId)
     fun getUpcomingDose(personId: Long, currentTime: Long) = appDao.getUpcomingDoseForPerson(personId, currentTime)
-    suspend fun insertDoses(doses: List<Dose>) = appDao.insertDoses(doses)
+    suspend fun insertDoses(doses: List<Dose>): List<Long> = appDao.insertDoses(doses)
     suspend fun updateDose(dose: Dose) = appDao.updateDose(dose)
     suspend fun getDosesWithCalendarEvents(treatmentId: Long) = appDao.getDosesWithCalendarEventsForTreatment(treatmentId)
+    suspend fun getDosesForTreatmentOnce(treatmentId: Long) = appDao.getDosesForTreatmentOnce(treatmentId)
+    suspend fun markDoseTakenById(doseId: Long) = appDao.markDoseTakenById(doseId)
 }

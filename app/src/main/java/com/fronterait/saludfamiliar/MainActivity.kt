@@ -8,12 +8,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
+import com.fronterait.saludfamiliar.notifications.NotificationHelper
 import com.fronterait.saludfamiliar.ui.AppNavigation
 import com.fronterait.saludfamiliar.ui.theme.MyApplicationTheme
 
 class MainActivity : ComponentActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
+    NotificationHelper.createChannel(this)
     enableEdgeToEdge()
     setContent {
       MyApplicationTheme {

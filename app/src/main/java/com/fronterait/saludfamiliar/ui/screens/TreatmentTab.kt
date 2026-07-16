@@ -75,7 +75,7 @@ fun TreatmentItem(treatment: Treatment, viewModel: AppViewModel, personName: Str
                             Icon(Icons.Default.Check, contentDescription = "Tomada", tint = MaterialTheme.colorScheme.primary)
                         } else {
                             if (treatment.active) {
-                                IconButton(onClick = { viewModel.markDoseTaken(dose, true) }, modifier = Modifier.size(24.dp)) {
+                                IconButton(onClick = { viewModel.markDoseTaken(context, dose, true) }, modifier = Modifier.size(24.dp)) {
                                     Icon(Icons.Default.Check, contentDescription = "Marcar tomada", tint = MaterialTheme.colorScheme.outline)
                                 }
                             }
@@ -138,7 +138,7 @@ fun TreatmentDialog(personId: Long, personName: String, viewModel: AppViewModel,
                     Text("Inicio: ${shortDateFormat.format(Date(startTimestamp))}")
                 }
                 Spacer(modifier = Modifier.height(8.dp))
-                Text("Nota: Se crearán eventos con recordatorio en tu calendario de Android.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+                Text("Nota: Se crearán eventos en tu calendario y notificaciones para cada toma.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
             }
         },
         confirmButton = {
