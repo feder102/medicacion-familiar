@@ -1,12 +1,14 @@
 package com.fronterait.saludfamiliar.ui.screens
 
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.outlined.Medication
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -21,15 +23,17 @@ import java.util.Date
 
 @Composable
 fun TreatmentTab(personId: Long, personName: String, viewModel: AppViewModel) {
-    val treatments by viewModel.getTreatments(personId).collectAsStateWithLifecycle()
+    val treatments by remember(personId) { viewModel.getTreatments(personId) }.collectAsStateWithLifecycle()
     var showDialog by remember { mutableStateOf(false) }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        if (treatments.isEmpty()) {
-            Text("No hay tratamientos activos.", modifier = Modifier.align(Alignment.Center).padding(16.dp))
-        } else {
+        RecordListContainer(
+            records = treatments,
+            emptyIcon = Icons.Outlined.Medication,
+            emptyMessage = "No hay tratamientos activos."
+        ) { list ->
             LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                items(treatments) { treatment ->
+                items(list, key = { it.id }) { treatment ->
                     TreatmentItem(treatment, viewModel, personName)
                 }
             }
@@ -46,10 +50,10 @@ fun TreatmentTab(personId: Long, personName: String, viewModel: AppViewModel) {
 
 @Composable
 fun TreatmentItem(treatment: Treatment, viewModel: AppViewModel, personName: String) {
-    val doses by viewModel.getDoses(treatment.id).collectAsStateWithLifecycle()
+    val doses by remember(treatment.id) { viewModel.getDoses(treatment.id) }.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
-    Card(modifier = Modifier.fillMaxWidth(), shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = if (treatment.active) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant, contentColor = if(treatment.active) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant)) {
+    Card(modifier = Modifier.fillMaxWidth().animateContentSize(animationSpec = tween(250)), shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = if (treatment.active) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant, contentColor = if(treatment.active) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant)) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text(treatment.medication, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
@@ -65,9 +69,9 @@ fun TreatmentItem(treatment: Treatment, viewModel: AppViewModel, personName: Str
             
             Spacer(modifier = Modifier.height(16.dp))
             Text("Tomas:", style = MaterialTheme.typography.titleMedium)
-            
+
             // Limit to showing the next few or active ones to save space, but let's show all for simplicity
-            doses.forEach { dose ->
+            doses.orEmpty().forEach { dose ->
                 Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Text(shortDateFormat.format(Date(dose.scheduledTime)), style = MaterialTheme.typography.bodyMedium, color = if(dose.taken) MaterialTheme.colorScheme.onSurface.copy(alpha=0.5f) else MaterialTheme.colorScheme.onSurface)
                     Row {

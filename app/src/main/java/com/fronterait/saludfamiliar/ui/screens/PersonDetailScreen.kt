@@ -4,18 +4,22 @@ import android.Manifest
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
-import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fronterait.saludfamiliar.ui.AppViewModel
-import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -24,9 +28,8 @@ fun PersonDetailScreen(
     viewModel: AppViewModel,
     onNavigateBack: () -> Unit
 ) {
-    val person by viewModel.getPersonById(personId).collectAsStateWithLifecycle()
-    val context = LocalContext.current
-    
+    val person by remember(personId) { viewModel.getPersonById(personId) }.collectAsStateWithLifecycle()
+
     // Request permissions for Calendar and Notifications
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -78,12 +81,25 @@ fun PersonDetailScreen(
                 }
             }
 
-            if (person != null) {
-                when (selectedTabIndex) {
-                    0 -> FeverTab(personId, viewModel)
-                    1 -> MoodTab(personId, viewModel)
-                    2 -> DoctorTab(personId, viewModel)
-                    3 -> TreatmentTab(personId, person!!.name, viewModel)
+            person?.let { currentPerson ->
+                // Las pestañas se deslizan en la dirección del cambio en lugar
+                // de reemplazarse de golpe.
+                AnimatedContent(
+                    targetState = selectedTabIndex,
+                    transitionSpec = {
+                        val direction = if (targetState > initialState) 1 else -1
+                        (slideInHorizontally(tween(250)) { it / 10 * direction } + fadeIn(tween(250)))
+                            .togetherWith(slideOutHorizontally(tween(200)) { -it / 10 * direction } + fadeOut(tween(150)))
+                    },
+                    label = "tabContent",
+                    modifier = Modifier.fillMaxSize()
+                ) { tabIndex ->
+                    when (tabIndex) {
+                        0 -> FeverTab(personId, viewModel)
+                        1 -> MoodTab(personId, viewModel)
+                        2 -> DoctorTab(personId, viewModel)
+                        3 -> TreatmentTab(personId, currentPerson.name, viewModel)
+                    }
                 }
             }
         }
