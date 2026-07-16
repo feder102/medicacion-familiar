@@ -1,4 +1,4 @@
-package com.example
+package com.fronterait.saludfamiliar
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -8,8 +8,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
-import com.example.ui.AppNavigation
-import com.example.ui.theme.MyApplicationTheme
+import com.fronterait.saludfamiliar.ui.AppNavigation
+import com.fronterait.saludfamiliar.ui.theme.MyApplicationTheme
 
 class MainActivity : ComponentActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {

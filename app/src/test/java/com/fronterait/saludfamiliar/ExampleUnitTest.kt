@@ -1,4 +1,4 @@
-package com.example
+package com.fronterait.saludfamiliar
 
 import org.junit.Assert.*
 import org.junit.Test

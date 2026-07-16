@@ -1,11 +1,11 @@
-package com.example.ui
+package com.fronterait.saludfamiliar.ui
 
 import android.app.Application
 import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.data.*
-import com.example.util.CalendarHelper
+import com.fronterait.saludfamiliar.data.*
+import com.fronterait.saludfamiliar.util.CalendarHelper
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow

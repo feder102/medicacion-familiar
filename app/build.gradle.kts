@@ -10,15 +10,15 @@ plugins {
 }
 
 android {
-  namespace = "com.example"
-  compileSdk { version = release(36) { minorApiLevel = 1 } }
+  namespace = "com.fronterait.saludfamiliar"
+  compileSdk = 37
 
   defaultConfig {
     applicationId = "com.aistudio.saludfamiliar.kxmpzq"
     minSdk = 24
     targetSdk = 36
-    versionCode = 6
-    versionName = "6.0"
+    versionCode = 8
+    versionName = "7.2"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
@@ -42,9 +42,13 @@ android {
   buildTypes {
     release {
       isCrunchPngs = false
-      isMinifyEnabled = false
+      isMinifyEnabled = true
+      isShrinkResources = true
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
       signingConfig = signingConfigs.getByName("release")
+      ndk {
+        debugSymbolLevel = "FULL"
+      }
     }
     debug { signingConfig = signingConfigs.getByName("debugConfig") }
   }

@@ -1,4 +1,4 @@
-package com.example.util
+package com.fronterait.saludfamiliar.util
 
 import android.content.ContentValues
 import android.content.Context

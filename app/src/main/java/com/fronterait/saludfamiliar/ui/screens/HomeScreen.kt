@@ -1,4 +1,4 @@
-package com.example.ui.screens
+package com.fronterait.saludfamiliar.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -23,8 +23,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.data.Person
-import com.example.ui.AppViewModel
+import com.fronterait.saludfamiliar.data.Person
+import com.fronterait.saludfamiliar.ui.AppViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -185,7 +185,7 @@ fun HomeScreen(
 @Composable
 fun DashboardContent(personId: Long, viewModel: AppViewModel, onNavigateToPerson: (Long) -> Unit) {
     val upcomingDose by viewModel.getUpcomingDose(personId).collectAsStateWithLifecycle()
-    val upcomingTreatment by produceState<com.example.data.Treatment?>(initialValue = null, upcomingDose) {
+    val upcomingTreatment by produceState<com.fronterait.saludfamiliar.data.Treatment?>(initialValue = null, upcomingDose) {
         if (upcomingDose != null) {
             viewModel.getTreatmentById(upcomingDose!!.treatmentId).collect {
                 value = it

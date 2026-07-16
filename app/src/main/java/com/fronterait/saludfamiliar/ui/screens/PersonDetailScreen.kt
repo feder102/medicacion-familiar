@@ -1,4 +1,4 @@
-package com.example.ui.screens
+package com.fronterait.saludfamiliar.ui.screens
 
 import android.Manifest
 import android.os.Build
@@ -14,7 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.ui.AppViewModel
+import com.fronterait.saludfamiliar.ui.AppViewModel
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)

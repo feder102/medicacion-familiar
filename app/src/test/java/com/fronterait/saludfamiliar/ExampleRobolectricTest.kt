@@ -1,6 +1,7 @@
-package com.example
+package com.fronterait.saludfamiliar
 
 import android.content.Context
+import com.fronterait.saludfamiliar.R
 import androidx.test.core.app.ApplicationProvider
 import org.junit.Assert.assertEquals
 import org.junit.Test

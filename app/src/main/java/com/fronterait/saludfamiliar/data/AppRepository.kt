@@ -1,4 +1,4 @@
-package com.example.data
+package com.fronterait.saludfamiliar.data
 
 class AppRepository(private val appDao: AppDao) {
     fun getAllPersons() = appDao.getAllPersons()

@@ -1,4 +1,4 @@
-package com.example.ui
+package com.fronterait.saludfamiliar.ui
 
 import androidx.compose.runtime.Composable
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -7,8 +7,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.example.ui.screens.HomeScreen
-import com.example.ui.screens.PersonDetailScreen
+import com.fronterait.saludfamiliar.ui.screens.HomeScreen
+import com.fronterait.saludfamiliar.ui.screens.PersonDetailScreen
 
 @Composable
 fun AppNavigation(viewModel: AppViewModel = viewModel()) {

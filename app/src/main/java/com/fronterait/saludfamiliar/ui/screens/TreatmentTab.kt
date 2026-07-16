@@ -1,4 +1,4 @@
-package com.example.ui.screens
+package com.fronterait.saludfamiliar.ui.screens
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -15,8 +15,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.data.Treatment
-import com.example.ui.AppViewModel
+import com.fronterait.saludfamiliar.data.Treatment
+import com.fronterait.saludfamiliar.ui.AppViewModel
 import java.util.Date
 
 @Composable
