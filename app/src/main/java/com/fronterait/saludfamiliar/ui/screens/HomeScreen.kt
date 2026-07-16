@@ -1,5 +1,9 @@
 package com.fronterait.saludfamiliar.ui.screens
 
+import android.net.Uri
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
@@ -22,6 +26,9 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.outlined.FileDownload
+import androidx.compose.material.icons.outlined.FileUpload
+import androidx.compose.material.icons.outlined.SettingsBackupRestore
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -43,8 +50,11 @@ fun HomeScreen(
     onNavigateToPerson: (Long) -> Unit
 ) {
     val persons by viewModel.allPersons.collectAsStateWithLifecycle()
+    val context = LocalContext.current
     var showAddDialog by remember { mutableStateOf(false) }
     var selectedPersonId by remember { mutableStateOf<Long?>(null) }
+    var showBackupMenu by remember { mutableStateOf(false) }
+    var pendingImportUri by remember { mutableStateOf<Uri?>(null) }
 
     LaunchedEffect(persons) {
         if (persons.isNotEmpty() && persons.none { it.id == selectedPersonId }) {
@@ -52,10 +62,50 @@ fun HomeScreen(
         }
     }
 
+    val exportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        uri?.let {
+            viewModel.exportBackup(context, it) { _, message ->
+                Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    val importLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        // Se pide confirmación antes de pisar los datos actuales.
+        uri?.let { pendingImportUri = it }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Salud Familiar") },
+                actions = {
+                    IconButton(onClick = { showBackupMenu = true }, modifier = Modifier.testTag("backup_menu_button")) {
+                        Icon(Icons.Outlined.SettingsBackupRestore, contentDescription = "Copia de seguridad")
+                    }
+                    DropdownMenu(expanded = showBackupMenu, onDismissRequest = { showBackupMenu = false }) {
+                        DropdownMenuItem(
+                            text = { Text("Exportar datos") },
+                            leadingIcon = { Icon(Icons.Outlined.FileUpload, contentDescription = null) },
+                            onClick = {
+                                showBackupMenu = false
+                                exportLauncher.launch(suggestedBackupFileName())
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Importar datos") },
+                            leadingIcon = { Icon(Icons.Outlined.FileDownload, contentDescription = null) },
+                            onClick = {
+                                showBackupMenu = false
+                                importLauncher.launch(arrayOf("application/json"))
+                            }
+                        )
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background,
                     titleContentColor = MaterialTheme.colorScheme.onBackground
@@ -133,6 +183,25 @@ fun HomeScreen(
         }
     }
 
+    pendingImportUri?.let { importUri ->
+        AlertDialog(
+            onDismissRequest = { pendingImportUri = null },
+            title = { Text("Importar copia de seguridad") },
+            text = { Text("Se reemplazarán TODOS los datos actuales (perfiles, registros y tratamientos) por los del archivo seleccionado. Esta acción no se puede deshacer.") },
+            confirmButton = {
+                Button(onClick = {
+                    pendingImportUri = null
+                    viewModel.importBackup(context, importUri) { _, message ->
+                        Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+                    }
+                }) { Text("Importar") }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingImportUri = null }) { Text("Cancelar") }
+            }
+        )
+    }
+
     if (showAddDialog) {
         var name by remember { mutableStateOf("") }
         var emoji by remember { mutableStateOf("😊") }
@@ -177,6 +246,12 @@ fun HomeScreen(
             }
         )
     }
+}
+
+private fun suggestedBackupFileName(): String {
+    val stamp = java.text.SimpleDateFormat("yyyyMMdd_HHmm", java.util.Locale.getDefault())
+        .format(java.util.Date())
+    return "salud_familiar_backup_$stamp.json"
 }
 
 @Composable

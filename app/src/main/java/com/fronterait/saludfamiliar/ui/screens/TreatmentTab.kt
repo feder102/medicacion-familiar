@@ -52,11 +52,17 @@ fun TreatmentTab(personId: Long, personName: String, viewModel: AppViewModel) {
 fun TreatmentItem(treatment: Treatment, viewModel: AppViewModel, personName: String) {
     val doses by remember(treatment.id) { viewModel.getDoses(treatment.id) }.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    var showEditDialog by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
 
     Card(modifier = Modifier.fillMaxWidth().animateContentSize(animationSpec = tween(250)), shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = if (treatment.active) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant, contentColor = if(treatment.active) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant)) {
         Column(modifier = Modifier.padding(16.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(treatment.medication, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                RecordActions(onEdit = { showEditDialog = true }, onDelete = { showDeleteDialog = true })
+            }
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text(treatment.medication, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Text("${treatment.dose} cada ${treatment.freqHours}hs por ${treatment.durationDays} días", style = MaterialTheme.typography.bodyMedium)
                 if (treatment.active) {
                     TextButton(onClick = { viewModel.cancelTreatment(context, treatment) }) {
                         Text("Suspender", color = MaterialTheme.colorScheme.error)
@@ -65,7 +71,6 @@ fun TreatmentItem(treatment: Treatment, viewModel: AppViewModel, personName: Str
                     Text("Suspendido", color = MaterialTheme.colorScheme.error)
                 }
             }
-            Text("${treatment.dose} cada ${treatment.freqHours}hs por ${treatment.durationDays} días", style = MaterialTheme.typography.bodyMedium)
             
             Spacer(modifier = Modifier.height(16.dp))
             Text("Tomas:", style = MaterialTheme.typography.titleMedium)
@@ -88,6 +93,50 @@ fun TreatmentItem(treatment: Treatment, viewModel: AppViewModel, personName: Str
                 }
             }
         }
+    }
+
+    if (showEditDialog) {
+        var medication by remember { mutableStateOf(treatment.medication) }
+        var doseDesc by remember { mutableStateOf(treatment.dose) }
+        AlertDialog(
+            onDismissRequest = { showEditDialog = false },
+            title = { Text("Editar Tratamiento") },
+            text = {
+                Column {
+                    OutlinedTextField(value = medication, onValueChange = { medication = it }, label = { Text("Medicamento") }, singleLine = true)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(value = doseDesc, onValueChange = { doseDesc = it }, label = { Text("Dosis") }, singleLine = true)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        "La frecuencia y duración no se pueden modificar porque cambiarían las tomas ya programadas. Para eso, eliminá el tratamiento y creá uno nuevo.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.secondary
+                    )
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    if (medication.isNotBlank() && doseDesc.isNotBlank()) {
+                        viewModel.updateTreatmentDetails(context, treatment, personName, medication, doseDesc)
+                        showEditDialog = false
+                    }
+                }) { Text("Guardar") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showEditDialog = false }) { Text("Cancelar") }
+            }
+        )
+    }
+
+    if (showDeleteDialog) {
+        DeleteRecordDialog(
+            message = "¿Eliminar el tratamiento de ${treatment.medication}? Se borrarán todas sus tomas y se cancelarán los recordatorios y eventos de calendario asociados.",
+            onConfirm = {
+                viewModel.deleteTreatment(context, treatment)
+                showDeleteDialog = false
+            },
+            onDismiss = { showDeleteDialog = false }
+        )
     }
 }
 

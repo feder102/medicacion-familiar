@@ -2,14 +2,17 @@ package com.fronterait.saludfamiliar.ui
 
 import android.app.Application
 import android.content.Context
+import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.fronterait.saludfamiliar.data.*
 import com.fronterait.saludfamiliar.notifications.AlarmScheduler
 import com.fronterait.saludfamiliar.util.CalendarHelper
 import java.util.concurrent.ConcurrentHashMap
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -57,9 +60,24 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun deletePerson(id: Long) {
+    fun updatePerson(person: Person) {
         viewModelScope.launch {
-            repository.deletePerson(id)
+            repository.updatePerson(person)
+        }
+    }
+
+    /**
+     * Elimina el perfil y todos sus registros. Antes de borrar, cancela los
+     * recordatorios pendientes y los eventos de calendario de sus tratamientos.
+     */
+    fun deletePerson(context: Context, personId: Long) {
+        viewModelScope.launch {
+            val doses = repository.getDosesForPersonOnce(personId)
+            doses.forEach { dose ->
+                AlarmScheduler.cancelDoseReminder(context, dose.id)
+                dose.calendarEventId?.let { CalendarHelper.deleteEvent(context, it) }
+            }
+            repository.deletePerson(personId)
         }
     }
 
@@ -80,6 +98,14 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun updateFeverRecord(record: FeverRecord) {
+        viewModelScope.launch { repository.updateFeverRecord(record) }
+    }
+
+    fun deleteFeverRecord(id: Long) {
+        viewModelScope.launch { repository.deleteFeverRecord(id) }
+    }
+
     fun getMoodRecords(personId: Long): StateFlow<List<MoodRecord>?> = moodFlows.getOrPut(personId) {
         repository.getMoodRecords(personId)
             .map<List<MoodRecord>, List<MoodRecord>?> { it }
@@ -92,6 +118,14 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun updateMoodRecord(record: MoodRecord) {
+        viewModelScope.launch { repository.updateMoodRecord(record) }
+    }
+
+    fun deleteMoodRecord(id: Long) {
+        viewModelScope.launch { repository.deleteMoodRecord(id) }
+    }
+
     fun getDoctorVisits(personId: Long): StateFlow<List<DoctorVisit>?> = doctorVisitFlows.getOrPut(personId) {
         repository.getDoctorVisits(personId)
             .map<List<DoctorVisit>, List<DoctorVisit>?> { it }
@@ -102,6 +136,14 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             repository.insertDoctorVisit(DoctorVisit(personId = personId, timestamp = timestamp, doctorName = doctorName, notes = notes))
         }
+    }
+
+    fun updateDoctorVisit(visit: DoctorVisit) {
+        viewModelScope.launch { repository.updateDoctorVisit(visit) }
+    }
+
+    fun deleteDoctorVisit(id: Long) {
+        viewModelScope.launch { repository.deleteDoctorVisit(id) }
     }
 
     fun getTreatments(personId: Long): StateFlow<List<Treatment>?> = treatmentFlows.getOrPut(personId) {
@@ -227,6 +269,104 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             repository.updateDose(dose.copy(taken = taken))
             if (taken) {
                 AlarmScheduler.cancelDoseReminder(context, dose.id)
+            }
+        }
+    }
+
+    /**
+     * Actualiza el nombre del medicamento y la descripción de la dosis.
+     * La frecuencia y duración no se modifican porque cambiarían las tomas
+     * ya generadas. Los recordatorios futuros se reprograman con el texto nuevo.
+     */
+    fun updateTreatmentDetails(
+        context: Context,
+        treatment: Treatment,
+        personName: String,
+        medication: String,
+        doseDesc: String
+    ) {
+        viewModelScope.launch {
+            repository.updateTreatment(treatment.copy(medication = medication, dose = doseDesc))
+            if (treatment.active) {
+                val now = System.currentTimeMillis()
+                repository.getDosesForTreatmentOnce(treatment.id)
+                    .filter { !it.taken && it.scheduledTime > now }
+                    .forEach { dose ->
+                        AlarmScheduler.scheduleDoseReminder(
+                            context = context,
+                            doseId = dose.id,
+                            scheduledTime = dose.scheduledTime,
+                            personId = treatment.personId,
+                            personName = personName,
+                            medication = medication,
+                            doseDesc = doseDesc
+                        )
+                    }
+            }
+        }
+    }
+
+    /** Elimina el tratamiento con sus tomas, recordatorios y eventos de calendario. */
+    fun deleteTreatment(context: Context, treatment: Treatment) {
+        viewModelScope.launch {
+            val doses = repository.getDosesForTreatmentOnce(treatment.id)
+            doses.forEach { dose ->
+                AlarmScheduler.cancelDoseReminder(context, dose.id)
+                dose.calendarEventId?.let { CalendarHelper.deleteEvent(context, it) }
+            }
+            repository.deleteTreatment(treatment.id)
+        }
+    }
+
+    // ---- Copias de seguridad ----
+
+    /** Exporta toda la base de datos como JSON al archivo elegido por el usuario. */
+    fun exportBackup(context: Context, uri: Uri, onResult: (Boolean, String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val backup = BackupManager.createBackup(repository)
+                withContext(Dispatchers.IO) {
+                    BackupManager.writeBackup(context, uri, backup)
+                }
+                onResult(true, "Copia de seguridad exportada correctamente")
+            } catch (e: Exception) {
+                onResult(false, "No se pudo exportar la copia de seguridad")
+            }
+        }
+    }
+
+    /**
+     * Restaura una copia de seguridad reemplazando todos los datos actuales.
+     * Cancela los recordatorios existentes y reprograma los del backup.
+     */
+    fun importBackup(context: Context, uri: Uri, onResult: (Boolean, String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val backup = withContext(Dispatchers.IO) {
+                    BackupManager.readBackup(context, uri)
+                }
+
+                val now = System.currentTimeMillis()
+                repository.getPendingDoseReminders(now).forEach {
+                    AlarmScheduler.cancelDoseReminder(context, it.id)
+                }
+
+                repository.replaceAllData(backup)
+
+                repository.getPendingDoseReminders(now).forEach { reminder ->
+                    AlarmScheduler.scheduleDoseReminder(
+                        context = context,
+                        doseId = reminder.id,
+                        scheduledTime = reminder.scheduledTime,
+                        personId = reminder.personId,
+                        personName = reminder.personName,
+                        medication = reminder.medication,
+                        doseDesc = reminder.doseDesc
+                    )
+                }
+                onResult(true, "Datos restaurados correctamente")
+            } catch (e: Exception) {
+                onResult(false, "No se pudo importar: el archivo no es un backup válido")
             }
         }
     }

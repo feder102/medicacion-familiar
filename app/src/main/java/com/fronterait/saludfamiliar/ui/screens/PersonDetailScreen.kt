@@ -14,9 +14,13 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fronterait.saludfamiliar.ui.AppViewModel
@@ -29,6 +33,10 @@ fun PersonDetailScreen(
     onNavigateBack: () -> Unit
 ) {
     val person by remember(personId) { viewModel.getPersonById(personId) }.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    var showProfileMenu by remember { mutableStateOf(false) }
+    var showEditDialog by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
 
     // Request permissions for Calendar and Notifications
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -58,6 +66,29 @@ fun PersonDetailScreen(
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
+                    }
+                },
+                actions = {
+                    IconButton(onClick = { showProfileMenu = true }) {
+                        Icon(Icons.Default.MoreVert, contentDescription = "Opciones del perfil")
+                    }
+                    DropdownMenu(expanded = showProfileMenu, onDismissRequest = { showProfileMenu = false }) {
+                        DropdownMenuItem(
+                            text = { Text("Editar perfil") },
+                            leadingIcon = { Icon(Icons.Outlined.Edit, contentDescription = null) },
+                            onClick = {
+                                showProfileMenu = false
+                                showEditDialog = true
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Eliminar perfil") },
+                            leadingIcon = { Icon(Icons.Outlined.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+                            onClick = {
+                                showProfileMenu = false
+                                showDeleteDialog = true
+                            }
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -103,5 +134,66 @@ fun PersonDetailScreen(
                 }
             }
         }
+    }
+
+    if (showEditDialog) {
+        person?.let { currentPerson ->
+            var name by remember { mutableStateOf(currentPerson.name) }
+            var emoji by remember { mutableStateOf(currentPerson.emoji) }
+
+            AlertDialog(
+                onDismissRequest = { showEditDialog = false },
+                title = { Text("Editar Perfil") },
+                text = {
+                    Column {
+                        OutlinedTextField(
+                            value = name,
+                            onValueChange = { name = it },
+                            label = { Text("Nombre") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = emoji,
+                            onValueChange = { emoji = it },
+                            label = { Text("Emoji") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                },
+                confirmButton = {
+                    Button(onClick = {
+                        if (name.isNotBlank() && emoji.isNotBlank()) {
+                            viewModel.updatePerson(currentPerson.copy(name = name, emoji = emoji))
+                            showEditDialog = false
+                        }
+                    }) { Text("Guardar") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showEditDialog = false }) { Text("Cancelar") }
+                }
+            )
+        }
+    }
+
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("Eliminar Perfil") },
+            text = { Text("Se eliminará el perfil de ${person?.name ?: "esta persona"} junto con todos sus registros, tratamientos y recordatorios. Esta acción no se puede deshacer.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showDeleteDialog = false
+                        viewModel.deletePerson(context, personId)
+                        onNavigateBack()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) { Text("Eliminar") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) { Text("Cancelar") }
+            }
+        )
     }
 }

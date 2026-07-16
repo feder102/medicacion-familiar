@@ -10,6 +10,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Mood
 import androidx.compose.material.icons.outlined.MedicalServices
 import androidx.compose.material.icons.outlined.Thermostat
@@ -24,6 +26,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.fronterait.saludfamiliar.data.DoctorVisit
+import com.fronterait.saludfamiliar.data.FeverRecord
+import com.fronterait.saludfamiliar.data.MoodRecord
 import com.fronterait.saludfamiliar.ui.AppViewModel
 import java.text.SimpleDateFormat
 import java.util.*
@@ -80,10 +85,44 @@ fun <T> RecordListContainer(
     }
 }
 
+/** Botones compactos de editar/eliminar que se muestran en cada registro. */
+@Composable
+fun RecordActions(onEdit: () -> Unit, onDelete: () -> Unit) {
+    Row {
+        IconButton(onClick = onEdit, modifier = Modifier.size(32.dp)) {
+            Icon(Icons.Outlined.Edit, contentDescription = "Editar", modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
+            Icon(Icons.Outlined.Delete, contentDescription = "Eliminar", modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.error)
+        }
+    }
+}
+
+/** Confirmación genérica antes de eliminar un registro. */
+@Composable
+fun DeleteRecordDialog(message: String, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Eliminar registro") },
+        text = { Text(message) },
+        confirmButton = {
+            Button(
+                onClick = onConfirm,
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+            ) { Text("Eliminar") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancelar") }
+        }
+    )
+}
+
 @Composable
 fun FeverTab(personId: Long, viewModel: AppViewModel) {
     val records by remember(personId) { viewModel.getFeverRecords(personId) }.collectAsStateWithLifecycle()
-    var showDialog by remember { mutableStateOf(false) }
+    var showAddDialog by remember { mutableStateOf(false) }
+    var editingRecord by remember { mutableStateOf<FeverRecord?>(null) }
+    var deletingRecord by remember { mutableStateOf<FeverRecord?>(null) }
 
     Box(modifier = Modifier.fillMaxSize()) {
         RecordListContainer(
@@ -94,24 +133,28 @@ fun FeverTab(personId: Long, viewModel: AppViewModel) {
             LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(list, key = { it.id }) { record ->
                     Card(modifier = Modifier.fillMaxWidth(), shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface, contentColor = MaterialTheme.colorScheme.onSurface), border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
-                        Row(modifier = Modifier.padding(16.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                            Text("${record.temperature}°C", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = if(record.temperature > 37.5) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)
+                        Row(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text("${record.temperature}°C", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = if(record.temperature > 37.5) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
                             Text(dateFormat.format(Date(record.timestamp)), style = MaterialTheme.typography.bodyMedium)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            RecordActions(onEdit = { editingRecord = record }, onDelete = { deletingRecord = record })
                         }
                     }
                 }
             }
         }
-        FloatingActionButton(onClick = { showDialog = true }, modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp)) {
+        FloatingActionButton(onClick = { showAddDialog = true }, modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp)) {
             Icon(Icons.Default.Add, contentDescription = "Agregar fiebre")
         }
     }
 
-    if (showDialog) {
-        var temp by remember { mutableStateOf("") }
+    if (showAddDialog || editingRecord != null) {
+        val editing = editingRecord
+        var temp by remember(editing) { mutableStateOf(editing?.temperature?.toString() ?: "") }
+        val dismiss = { showAddDialog = false; editingRecord = null }
         AlertDialog(
-            onDismissRequest = { showDialog = false },
-            title = { Text("Registrar Fiebre") },
+            onDismissRequest = dismiss,
+            title = { Text(if (editing == null) "Registrar Fiebre" else "Editar Fiebre") },
             text = {
                 OutlinedTextField(
                     value = temp,
@@ -123,14 +166,29 @@ fun FeverTab(personId: Long, viewModel: AppViewModel) {
             confirmButton = {
                 Button(onClick = {
                     temp.toDoubleOrNull()?.let {
-                        viewModel.insertFeverRecord(personId, it, System.currentTimeMillis())
-                        showDialog = false
+                        if (editing == null) {
+                            viewModel.insertFeverRecord(personId, it, System.currentTimeMillis())
+                        } else {
+                            viewModel.updateFeverRecord(editing.copy(temperature = it))
+                        }
+                        dismiss()
                     }
                 }) { Text("Guardar") }
             },
             dismissButton = {
-                TextButton(onClick = { showDialog = false }) { Text("Cancelar") }
+                TextButton(onClick = dismiss) { Text("Cancelar") }
             }
+        )
+    }
+
+    deletingRecord?.let { record ->
+        DeleteRecordDialog(
+            message = "¿Eliminar el registro de ${record.temperature}°C del ${dateFormat.format(Date(record.timestamp))}?",
+            onConfirm = {
+                viewModel.deleteFeverRecord(record.id)
+                deletingRecord = null
+            },
+            onDismiss = { deletingRecord = null }
         )
     }
 }
@@ -138,7 +196,9 @@ fun FeverTab(personId: Long, viewModel: AppViewModel) {
 @Composable
 fun MoodTab(personId: Long, viewModel: AppViewModel) {
     val records by remember(personId) { viewModel.getMoodRecords(personId) }.collectAsStateWithLifecycle()
-    var showDialog by remember { mutableStateOf(false) }
+    var showAddDialog by remember { mutableStateOf(false) }
+    var editingRecord by remember { mutableStateOf<MoodRecord?>(null) }
+    var deletingRecord by remember { mutableStateOf<MoodRecord?>(null) }
     val moods = listOf("😊 Bien", "😐 Regular", "😣 Mal", "😴 Decaído")
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -150,30 +210,38 @@ fun MoodTab(personId: Long, viewModel: AppViewModel) {
             LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(list, key = { it.id }) { record ->
                     Card(modifier = Modifier.fillMaxWidth(), shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface, contentColor = MaterialTheme.colorScheme.onSurface), border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
-                        Row(modifier = Modifier.padding(16.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                            Text(record.state, style = MaterialTheme.typography.titleMedium)
+                        Row(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text(record.state, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
                             Text(dateFormat.format(Date(record.timestamp)), style = MaterialTheme.typography.bodyMedium)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            RecordActions(onEdit = { editingRecord = record }, onDelete = { deletingRecord = record })
                         }
                     }
                 }
             }
         }
-        FloatingActionButton(onClick = { showDialog = true }, modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp)) {
+        FloatingActionButton(onClick = { showAddDialog = true }, modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp)) {
             Icon(Icons.Default.Add, contentDescription = "Agregar humor")
         }
     }
 
-    if (showDialog) {
+    if (showAddDialog || editingRecord != null) {
+        val editing = editingRecord
+        val dismiss = { showAddDialog = false; editingRecord = null }
         AlertDialog(
-            onDismissRequest = { showDialog = false },
-            title = { Text("Estado de ánimo") },
+            onDismissRequest = dismiss,
+            title = { Text(if (editing == null) "Estado de ánimo" else "Editar estado de ánimo") },
             text = {
                 Column {
                     moods.forEach { mood ->
                         TextButton(
                             onClick = {
-                                viewModel.insertMoodRecord(personId, mood, System.currentTimeMillis())
-                                showDialog = false
+                                if (editing == null) {
+                                    viewModel.insertMoodRecord(personId, mood, System.currentTimeMillis())
+                                } else {
+                                    viewModel.updateMoodRecord(editing.copy(state = mood))
+                                }
+                                dismiss()
                             },
                             modifier = Modifier.fillMaxWidth()
                         ) {
@@ -183,7 +251,18 @@ fun MoodTab(personId: Long, viewModel: AppViewModel) {
                 }
             },
             confirmButton = {},
-            dismissButton = { TextButton(onClick = { showDialog = false }) { Text("Cancelar") } }
+            dismissButton = { TextButton(onClick = dismiss) { Text("Cancelar") } }
+        )
+    }
+
+    deletingRecord?.let { record ->
+        DeleteRecordDialog(
+            message = "¿Eliminar el registro \"${record.state}\" del ${dateFormat.format(Date(record.timestamp))}?",
+            onConfirm = {
+                viewModel.deleteMoodRecord(record.id)
+                deletingRecord = null
+            },
+            onDismiss = { deletingRecord = null }
         )
     }
 }
@@ -191,7 +270,9 @@ fun MoodTab(personId: Long, viewModel: AppViewModel) {
 @Composable
 fun DoctorTab(personId: Long, viewModel: AppViewModel) {
     val records by remember(personId) { viewModel.getDoctorVisits(personId) }.collectAsStateWithLifecycle()
-    var showDialog by remember { mutableStateOf(false) }
+    var showAddDialog by remember { mutableStateOf(false) }
+    var editingRecord by remember { mutableStateOf<DoctorVisit?>(null) }
+    var deletingRecord by remember { mutableStateOf<DoctorVisit?>(null) }
 
     Box(modifier = Modifier.fillMaxSize()) {
         RecordListContainer(
@@ -202,13 +283,14 @@ fun DoctorTab(personId: Long, viewModel: AppViewModel) {
             LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(list, key = { it.id }) { record ->
                     Card(modifier = Modifier.fillMaxWidth(), shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface, contentColor = MaterialTheme.colorScheme.onSurface), border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text(record.doctorName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 16.dp)) {
+                            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                Text(record.doctorName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                                 Text(dateFormat.format(Date(record.timestamp)), style = MaterialTheme.typography.bodyMedium)
+                                Spacer(modifier = Modifier.width(4.dp))
+                                RecordActions(onEdit = { editingRecord = record }, onDelete = { deletingRecord = record })
                             }
                             if (record.notes.isNotBlank()) {
-                                Spacer(modifier = Modifier.height(8.dp))
                                 Text(record.notes, style = MaterialTheme.typography.bodyMedium)
                             }
                         }
@@ -216,17 +298,19 @@ fun DoctorTab(personId: Long, viewModel: AppViewModel) {
                 }
             }
         }
-        FloatingActionButton(onClick = { showDialog = true }, modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp)) {
+        FloatingActionButton(onClick = { showAddDialog = true }, modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp)) {
             Icon(Icons.Default.Add, contentDescription = "Agregar visita")
         }
     }
 
-    if (showDialog) {
-        var doctor by remember { mutableStateOf("") }
-        var notes by remember { mutableStateOf("") }
+    if (showAddDialog || editingRecord != null) {
+        val editing = editingRecord
+        var doctor by remember(editing) { mutableStateOf(editing?.doctorName ?: "") }
+        var notes by remember(editing) { mutableStateOf(editing?.notes ?: "") }
+        val dismiss = { showAddDialog = false; editingRecord = null }
         AlertDialog(
-            onDismissRequest = { showDialog = false },
-            title = { Text("Registrar Visita") },
+            onDismissRequest = dismiss,
+            title = { Text(if (editing == null) "Registrar Visita" else "Editar Visita") },
             text = {
                 Column {
                     OutlinedTextField(value = doctor, onValueChange = { doctor = it }, label = { Text("Doctor/Especialidad") })
@@ -237,14 +321,29 @@ fun DoctorTab(personId: Long, viewModel: AppViewModel) {
             confirmButton = {
                 Button(onClick = {
                     if (doctor.isNotBlank()) {
-                        viewModel.insertDoctorVisit(personId, System.currentTimeMillis(), doctor, notes)
-                        showDialog = false
+                        if (editing == null) {
+                            viewModel.insertDoctorVisit(personId, System.currentTimeMillis(), doctor, notes)
+                        } else {
+                            viewModel.updateDoctorVisit(editing.copy(doctorName = doctor, notes = notes))
+                        }
+                        dismiss()
                     }
                 }) { Text("Guardar") }
             },
             dismissButton = {
-                TextButton(onClick = { showDialog = false }) { Text("Cancelar") }
+                TextButton(onClick = dismiss) { Text("Cancelar") }
             }
+        )
+    }
+
+    deletingRecord?.let { record ->
+        DeleteRecordDialog(
+            message = "¿Eliminar la visita a ${record.doctorName} del ${dateFormat.format(Date(record.timestamp))}?",
+            onConfirm = {
+                viewModel.deleteDoctorVisit(record.id)
+                deletingRecord = null
+            },
+            onDismiss = { deletingRecord = null }
         )
     }
 }
