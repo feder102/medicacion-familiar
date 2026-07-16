@@ -1,5 +1,10 @@
 package com.fronterait.saludfamiliar.ui
 
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.runtime.Composable
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
@@ -14,7 +19,16 @@ import com.fronterait.saludfamiliar.ui.screens.PersonDetailScreen
 fun AppNavigation(viewModel: AppViewModel = viewModel()) {
     val navController = rememberNavController()
 
-    NavHost(navController = navController, startDestination = "home") {
+    // Transiciones consistentes de ida y vuelta: la pantalla nueva se desliza
+    // desde la derecha con un fundido, en lugar del corte brusco por defecto.
+    NavHost(
+        navController = navController,
+        startDestination = "home",
+        enterTransition = { slideInHorizontally(tween(300)) { it / 4 } + fadeIn(tween(300)) },
+        exitTransition = { slideOutHorizontally(tween(300)) { -it / 4 } + fadeOut(tween(300)) },
+        popEnterTransition = { slideInHorizontally(tween(300)) { -it / 4 } + fadeIn(tween(300)) },
+        popExitTransition = { slideOutHorizontally(tween(300)) { it / 4 } + fadeOut(tween(300)) }
+    ) {
         composable("home") {
             HomeScreen(
                 viewModel = viewModel,
@@ -23,7 +37,7 @@ fun AppNavigation(viewModel: AppViewModel = viewModel()) {
                 }
             )
         }
-        
+
         composable(
             route = "personDetail/{personId}",
             arguments = listOf(navArgument("personId") { type = NavType.LongType })

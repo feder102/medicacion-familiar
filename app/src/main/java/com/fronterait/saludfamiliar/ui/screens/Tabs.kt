@@ -1,17 +1,27 @@
 package com.fronterait.saludfamiliar.ui.screens
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.outlined.Mood
+import androidx.compose.material.icons.outlined.MedicalServices
+import androidx.compose.material.icons.outlined.Thermostat
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fronterait.saludfamiliar.ui.AppViewModel
@@ -21,17 +31,68 @@ import java.util.*
 val dateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
 val shortDateFormat = SimpleDateFormat("dd/MM HH:mm", Locale.getDefault())
 
+private enum class ListPhase { Loading, Empty, Content }
+
+/**
+ * Contenedor común para las listas de registros: hace un fundido entre
+ * "cargando", "sin datos" y el contenido en vez de saltar entre estados,
+ * que era lo que producía el parpadeo al entrar a cada pestaña.
+ */
+@Composable
+fun <T> RecordListContainer(
+    records: List<T>?,
+    emptyIcon: ImageVector,
+    emptyMessage: String,
+    content: @Composable (List<T>) -> Unit
+) {
+    val phase = when {
+        records == null -> ListPhase.Loading
+        records.isEmpty() -> ListPhase.Empty
+        else -> ListPhase.Content
+    }
+    AnimatedContent(
+        targetState = phase,
+        transitionSpec = { fadeIn(tween(220)) togetherWith fadeOut(tween(120)) },
+        label = "recordList",
+        modifier = Modifier.fillMaxSize()
+    ) { target ->
+        when (target) {
+            ListPhase.Loading -> Box(modifier = Modifier.fillMaxSize())
+            ListPhase.Empty -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(32.dp)) {
+                    Icon(
+                        emptyIcon,
+                        contentDescription = null,
+                        modifier = Modifier.size(48.dp),
+                        tint = MaterialTheme.colorScheme.outline
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        emptyMessage,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+            ListPhase.Content -> records?.let { content(it) }
+        }
+    }
+}
+
 @Composable
 fun FeverTab(personId: Long, viewModel: AppViewModel) {
-    val records by viewModel.getFeverRecords(personId).collectAsStateWithLifecycle()
+    val records by remember(personId) { viewModel.getFeverRecords(personId) }.collectAsStateWithLifecycle()
     var showDialog by remember { mutableStateOf(false) }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        if (records.isEmpty()) {
-            Text("No hay registros de fiebre.", modifier = Modifier.align(Alignment.Center).padding(16.dp))
-        } else {
+        RecordListContainer(
+            records = records,
+            emptyIcon = Icons.Outlined.Thermostat,
+            emptyMessage = "No hay registros de fiebre."
+        ) { list ->
             LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(records) { record ->
+                items(list, key = { it.id }) { record ->
                     Card(modifier = Modifier.fillMaxWidth(), shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface, contentColor = MaterialTheme.colorScheme.onSurface), border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
                         Row(modifier = Modifier.padding(16.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                             Text("${record.temperature}°C", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = if(record.temperature > 37.5) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)
@@ -76,16 +137,18 @@ fun FeverTab(personId: Long, viewModel: AppViewModel) {
 
 @Composable
 fun MoodTab(personId: Long, viewModel: AppViewModel) {
-    val records by viewModel.getMoodRecords(personId).collectAsStateWithLifecycle()
+    val records by remember(personId) { viewModel.getMoodRecords(personId) }.collectAsStateWithLifecycle()
     var showDialog by remember { mutableStateOf(false) }
     val moods = listOf("😊 Bien", "😐 Regular", "😣 Mal", "😴 Decaído")
 
     Box(modifier = Modifier.fillMaxSize()) {
-        if (records.isEmpty()) {
-            Text("No hay registros de humor.", modifier = Modifier.align(Alignment.Center).padding(16.dp))
-        } else {
+        RecordListContainer(
+            records = records,
+            emptyIcon = Icons.Outlined.Mood,
+            emptyMessage = "No hay registros de humor."
+        ) { list ->
             LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(records) { record ->
+                items(list, key = { it.id }) { record ->
                     Card(modifier = Modifier.fillMaxWidth(), shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface, contentColor = MaterialTheme.colorScheme.onSurface), border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
                         Row(modifier = Modifier.padding(16.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                             Text(record.state, style = MaterialTheme.typography.titleMedium)
@@ -127,15 +190,17 @@ fun MoodTab(personId: Long, viewModel: AppViewModel) {
 
 @Composable
 fun DoctorTab(personId: Long, viewModel: AppViewModel) {
-    val records by viewModel.getDoctorVisits(personId).collectAsStateWithLifecycle()
+    val records by remember(personId) { viewModel.getDoctorVisits(personId) }.collectAsStateWithLifecycle()
     var showDialog by remember { mutableStateOf(false) }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        if (records.isEmpty()) {
-            Text("No hay visitas registradas.", modifier = Modifier.align(Alignment.Center).padding(16.dp))
-        } else {
+        RecordListContainer(
+            records = records,
+            emptyIcon = Icons.Outlined.MedicalServices,
+            emptyMessage = "No hay visitas registradas."
+        ) { list ->
             LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(records) { record ->
+                items(list, key = { it.id }) { record ->
                     Card(modifier = Modifier.fillMaxWidth(), shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface, contentColor = MaterialTheme.colorScheme.onSurface), border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
                         Column(modifier = Modifier.padding(16.dp)) {
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
