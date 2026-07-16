@@ -8,6 +8,15 @@ import androidx.room.Update
 import androidx.room.Transaction
 import kotlinx.coroutines.flow.Flow
 
+data class DoseReminderInfo(
+    val id: Long,
+    val scheduledTime: Long,
+    val medication: String,
+    val doseDesc: String,
+    val personId: Long,
+    val personName: String
+)
+
 @Dao
 interface AppDao {
     // Person
@@ -65,11 +74,26 @@ interface AppDao {
     fun getUpcomingDoseForPerson(personId: Long, currentTime: Long): Flow<Dose?>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertDoses(doses: List<Dose>)
+    suspend fun insertDoses(doses: List<Dose>): List<Long>
 
     @Update
     suspend fun updateDose(dose: Dose)
-    
+
     @Query("SELECT * FROM doses WHERE calendarEventId IS NOT NULL AND treatmentId = :treatmentId")
     suspend fun getDosesWithCalendarEventsForTreatment(treatmentId: Long): List<Dose>
+
+    @Query("SELECT * FROM doses WHERE treatmentId = :treatmentId")
+    suspend fun getDosesForTreatmentOnce(treatmentId: Long): List<Dose>
+
+    @Query("UPDATE doses SET taken = 1 WHERE id = :doseId")
+    suspend fun markDoseTakenById(doseId: Long)
+
+    @Query("""
+        SELECT d.id AS id, d.scheduledTime AS scheduledTime, t.medication AS medication, t.dose AS doseDesc, p.id AS personId, p.name AS personName
+        FROM doses d
+        INNER JOIN treatments t ON d.treatmentId = t.id
+        INNER JOIN persons p ON t.personId = p.id
+        WHERE t.active = 1 AND d.taken = 0 AND d.scheduledTime > :currentTime
+    """)
+    suspend fun getPendingDoseReminders(currentTime: Long): List<DoseReminderInfo>
 }
