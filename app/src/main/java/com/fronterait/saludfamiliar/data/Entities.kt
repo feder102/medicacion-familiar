@@ -4,7 +4,11 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 import androidx.room.ForeignKey
 import androidx.room.Index
+import com.squareup.moshi.JsonClass
 
+// Las entidades se serializan con Moshi para las copias de seguridad en JSON.
+
+@JsonClass(generateAdapter = true)
 @Entity(tableName = "persons")
 data class Person(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
@@ -12,6 +16,7 @@ data class Person(
     val emoji: String
 )
 
+@JsonClass(generateAdapter = true)
 @Entity(
     tableName = "fever_records",
     foreignKeys = [ForeignKey(entity = Person::class, parentColumns = ["id"], childColumns = ["personId"], onDelete = ForeignKey.CASCADE)],
@@ -24,6 +29,7 @@ data class FeverRecord(
     val timestamp: Long
 )
 
+@JsonClass(generateAdapter = true)
 @Entity(
     tableName = "mood_records",
     foreignKeys = [ForeignKey(entity = Person::class, parentColumns = ["id"], childColumns = ["personId"], onDelete = ForeignKey.CASCADE)],
@@ -36,6 +42,7 @@ data class MoodRecord(
     val timestamp: Long
 )
 
+@JsonClass(generateAdapter = true)
 @Entity(
     tableName = "doctor_visits",
     foreignKeys = [ForeignKey(entity = Person::class, parentColumns = ["id"], childColumns = ["personId"], onDelete = ForeignKey.CASCADE)],
@@ -49,6 +56,7 @@ data class DoctorVisit(
     val notes: String
 )
 
+@JsonClass(generateAdapter = true)
 @Entity(
     tableName = "treatments",
     foreignKeys = [ForeignKey(entity = Person::class, parentColumns = ["id"], childColumns = ["personId"], onDelete = ForeignKey.CASCADE)],
@@ -65,6 +73,7 @@ data class Treatment(
     val active: Boolean
 )
 
+@JsonClass(generateAdapter = true)
 @Entity(
     tableName = "doses",
     foreignKeys = [ForeignKey(entity = Treatment::class, parentColumns = ["id"], childColumns = ["treatmentId"], onDelete = ForeignKey.CASCADE)],

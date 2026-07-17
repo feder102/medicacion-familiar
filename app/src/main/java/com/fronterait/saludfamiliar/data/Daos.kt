@@ -29,6 +29,9 @@ interface AppDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertPerson(person: Person): Long
 
+    @Update
+    suspend fun updatePerson(person: Person)
+
     @Query("DELETE FROM persons WHERE id = :id")
     suspend fun deletePerson(id: Long)
 
@@ -39,6 +42,12 @@ interface AppDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertFeverRecord(feverRecord: FeverRecord)
 
+    @Update
+    suspend fun updateFeverRecord(feverRecord: FeverRecord)
+
+    @Query("DELETE FROM fever_records WHERE id = :id")
+    suspend fun deleteFeverRecord(id: Long)
+
     // Mood
     @Query("SELECT * FROM mood_records WHERE personId = :personId ORDER BY timestamp DESC")
     fun getMoodRecordsForPerson(personId: Long): Flow<List<MoodRecord>>
@@ -46,12 +55,24 @@ interface AppDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertMoodRecord(moodRecord: MoodRecord)
 
+    @Update
+    suspend fun updateMoodRecord(moodRecord: MoodRecord)
+
+    @Query("DELETE FROM mood_records WHERE id = :id")
+    suspend fun deleteMoodRecord(id: Long)
+
     // Doctor Visit
     @Query("SELECT * FROM doctor_visits WHERE personId = :personId ORDER BY timestamp DESC")
     fun getDoctorVisitsForPerson(personId: Long): Flow<List<DoctorVisit>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertDoctorVisit(visit: DoctorVisit)
+
+    @Update
+    suspend fun updateDoctorVisit(visit: DoctorVisit)
+
+    @Query("DELETE FROM doctor_visits WHERE id = :id")
+    suspend fun deleteDoctorVisit(id: Long)
 
     // Treatment
     @Query("SELECT * FROM treatments WHERE personId = :personId ORDER BY startTimestamp DESC")
@@ -65,6 +86,9 @@ interface AppDao {
 
     @Update
     suspend fun updateTreatment(treatment: Treatment)
+
+    @Query("DELETE FROM treatments WHERE id = :id")
+    suspend fun deleteTreatment(id: Long)
 
     // Dose
     @Query("SELECT * FROM doses WHERE treatmentId = :treatmentId ORDER BY scheduledTime ASC")
@@ -96,4 +120,64 @@ interface AppDao {
         WHERE t.active = 1 AND d.taken = 0 AND d.scheduledTime > :currentTime
     """)
     suspend fun getPendingDoseReminders(currentTime: Long): List<DoseReminderInfo>
+
+    @Query("SELECT d.* FROM doses d INNER JOIN treatments t ON d.treatmentId = t.id WHERE t.personId = :personId")
+    suspend fun getDosesForPersonOnce(personId: Long): List<Dose>
+
+    // Copias de seguridad: lecturas puntuales de todas las tablas
+    @Query("SELECT * FROM persons")
+    suspend fun getAllPersonsOnce(): List<Person>
+
+    @Query("SELECT * FROM fever_records")
+    suspend fun getAllFeverRecordsOnce(): List<FeverRecord>
+
+    @Query("SELECT * FROM mood_records")
+    suspend fun getAllMoodRecordsOnce(): List<MoodRecord>
+
+    @Query("SELECT * FROM doctor_visits")
+    suspend fun getAllDoctorVisitsOnce(): List<DoctorVisit>
+
+    @Query("SELECT * FROM treatments")
+    suspend fun getAllTreatmentsOnce(): List<Treatment>
+
+    @Query("SELECT * FROM doses")
+    suspend fun getAllDosesOnce(): List<Dose>
+
+    // Restauración: se borra todo (las tablas hijas caen en cascada desde persons)
+    // y se reinserta el contenido del backup preservando los ids originales.
+    @Query("DELETE FROM persons")
+    suspend fun deleteAllPersons()
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertPersons(persons: List<Person>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertFeverRecords(records: List<FeverRecord>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertMoodRecords(records: List<MoodRecord>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertDoctorVisits(visits: List<DoctorVisit>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertTreatments(treatments: List<Treatment>)
+
+    @Transaction
+    suspend fun replaceAllData(
+        persons: List<Person>,
+        feverRecords: List<FeverRecord>,
+        moodRecords: List<MoodRecord>,
+        doctorVisits: List<DoctorVisit>,
+        treatments: List<Treatment>,
+        doses: List<Dose>
+    ) {
+        deleteAllPersons()
+        insertPersons(persons)
+        insertFeverRecords(feverRecords)
+        insertMoodRecords(moodRecords)
+        insertDoctorVisits(doctorVisits)
+        insertTreatments(treatments)
+        insertDoses(doses)
+    }
 }
