@@ -17,8 +17,8 @@ android {
     applicationId = "com.aistudio.saludfamiliar.kxmpzq"
     minSdk = 24
     targetSdk = 36
-    versionCode = 9
-    versionName = "7.3"
+    versionCode = 10
+    versionName = "10"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
